@@ -1,0 +1,18 @@
+# First file of a multi-file KUBECONFIG. Fake credentials.
+apiVersion: v1
+kind: Config
+current-context: alpha
+clusters:
+- name: alpha
+  cluster:
+    server: https://alpha.example.com:6443
+users:
+- name: alpha-user
+  user:
+    token: fake-token-alpha
+contexts:
+- name: alpha
+  context:
+    cluster: alpha
+    user: alpha-user
+    namespace: alpha-ns

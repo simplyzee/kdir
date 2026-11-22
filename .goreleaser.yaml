@@ -1,0 +1,78 @@
+# GoReleaser configuration: https://goreleaser.com
+version: 2
+
+project_name: kdir
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./internal/...
+
+builds:
+  - id: kdir
+    main: ./cmd/kdir
+    binary: kdir
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X github.com/thomaschaplin/kdir/internal/cli.Version={{ .Version }}
+      - -X github.com/thomaschaplin/kdir/internal/cli.Commit={{ .ShortCommit }}
+      - -X github.com/thomaschaplin/kdir/internal/cli.Date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude: ["^docs:", "^test:", "^ci:"]
+
+release:
+  github:
+    owner: thomaschaplin
+    name: kdir
+
+# Homebrew: `brew install thomaschaplin/tap/kdir`.
+# Publishing stays off until the tap repository exists and the
+# HOMEBREW_TAP_GITHUB_TOKEN secret (a token that can push to it) is set;
+# see "Releasing" in the README.
+homebrew_casks:
+  - name: kdir
+    homepage: https://github.com/thomaschaplin/kdir
+    description: Per-directory Kubernetes context and namespace, from a committable .kubectx file
+    license: MIT
+    binaries: [kdir]
+    repository:
+      owner: thomaschaplin
+      name: homebrew-tap
+      token: '{{ envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "" }}'
+    directory: Casks
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    skip_upload: '{{ if envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "" }}false{{ else }}true{{ end }}'
+    caveats: |
+      Add the hook to your shell's rc file:
+        zsh:  eval "$(kdir hook zsh)"
+        bash: eval "$(kdir hook bash)"
+        fish: kdir hook fish | source
+    hooks:
+      post:
+        # The binaries are not notarised; clear the quarantine flag so
+        # macOS will run them.
+        install_steps: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/kdir"]
+          end

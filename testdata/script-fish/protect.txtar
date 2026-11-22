@@ -1,0 +1,66 @@
+# fish: protect: true wraps kubectl while in the directory; completion keeps
+# working; a user's own kubectl function is left alone.
+
+exec kdir allow home/prod
+exec fish --no-config scenario.fish
+cmp stdout want
+cmp stderr want-stderr
+
+-- fakebin/kubectl --
+#!/bin/sh
+echo "kubectl ran: $*"
+-- yes --
+y
+-- no --
+n
+-- home/prod/.kubectx --
+context: prod-eu
+namespace: web
+protect: true
+-- scenario.fish --
+source $WORK/lib.fish
+chmod +x $WORK/fakebin/kubectl
+set -l realkubectl (command -s kubectl)
+set -gx PATH $WORK/fakebin $PATH
+function kind; type -t kubectl; end
+echo "before: "(kind)
+to $HOME/prod
+echo "in prod: "(kind)
+kubectl get pods
+KDIR_TTY=$WORK/yes kubectl apply -f x.yaml; echo "status=$status"
+KDIR_TTY=$WORK/no kubectl delete pod x; echo "status=$status"
+kubectl delete pod x --dry-run=server
+to $HOME
+echo "home: "(kind)
+
+if test -n "$realkubectl"
+    # completion through the wrapper, with the real kubectl's fish completion
+    set -gx PATH (dirname $realkubectl) $PATH
+    command kubectl completion fish | source
+    to $HOME/prod
+    complete -C 'kubectl ap' | string match -q -r '^apply\b'; and echo "completion ok"
+    to $HOME
+else
+    echo "completion ok"
+end
+
+function kubectl; echo "user function"; end
+to $HOME/prod
+kubectl apply -f x
+to $HOME
+kubectl get
+-- want --
+before: file
+in prod: function
+kubectl ran: get pods
+kubectl ran: apply -f x.yaml
+status=0
+status=1
+kubectl ran: delete pod x --dry-run=server
+home: file
+completion ok
+user function
+user function
+-- want-stderr --
+⚠ prod-eu/web: kubectl apply -f x.yaml. Continue? [y/N] ⚠ prod-eu/web: kubectl delete pod x. Continue? [y/N] kdir: not running kubectl delete
+kdir: protect: true is set here, but you already have a kubectl function or alias; kdir won't replace it

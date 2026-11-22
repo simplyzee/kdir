@@ -1,0 +1,78 @@
+# protect: true wraps kubectl in a confirmation for mutating verbs while in
+# the directory, and removes the wrapper on leaving.
+
+exec kdir allow home/prod
+exec kdir allow home/plain
+exec $SHELLBIN $SHELLFLAG scenario.sh
+cmp stdout want
+cmp stderr want-stderr
+
+-- fakebin/kubectl --
+#!/bin/sh
+echo "kubectl ran: $*"
+-- yes --
+y
+-- no --
+n
+-- home/prod/.kubectx --
+context: prod-eu
+protect: true
+-- home/plain/.kubectx --
+context: dev
+-- scenario.sh --
+. "$WORK/lib.sh"
+chmod +x "$WORK/fakebin/kubectl"
+PATH="$WORK/fakebin:$PATH"
+iskind() { if [ -n "${ZSH_VERSION:-}" ]; then whence -w kubectl | sed 's/^kubectl: //; s/^command$/file/'; else type -t kubectl; fi; }
+echo "before: $(iskind)"
+to "$HOME/prod"
+echo "in prod: $(iskind)"
+kubectl get pods
+KDIR_TTY="$WORK/yes" kubectl apply -f 'my file.yaml'; echo "status=$?"
+KDIR_TTY="$WORK/no" kubectl -n web delete pod x; echo "status=$?"
+KDIR_TTY="$WORK/no" kubectl --context dev -A rollout restart deploy/web; echo "status=$?"
+kubectl rollout status deploy/web
+kubectl apply -f x.yaml --dry-run=client
+KDIR_YES=1 kubectl scale deploy/web --replicas=0
+kubectl cordon node-1 </dev/null; echo "no tty status=$?"
+to "$HOME/plain"
+echo "in plain: $(iskind)"
+kubectl delete pod x
+to "$HOME/prod"
+to "$HOME"
+echo "home: $(iskind)"
+
+alias kubectl='echo aliased'
+to "$HOME/prod"
+to "$HOME"
+echo "alias kept: $(alias kubectl | sed 's/^alias //')"
+unalias kubectl
+kubectl() { echo "user function"; }
+to "$HOME/prod"
+kubectl apply -f x
+to "$HOME"
+kubectl get
+-- want --
+before: file
+in prod: function
+kubectl ran: get pods
+kubectl ran: apply -f my file.yaml
+status=0
+status=1
+status=1
+kubectl ran: rollout status deploy/web
+kubectl ran: apply -f x.yaml --dry-run=client
+kubectl ran: scale deploy/web --replicas=0
+no tty status=1
+in plain: file
+kubectl ran: delete pod x
+home: file
+alias kept: kubectl='echo aliased'
+user function
+user function
+-- want-stderr --
+⚠ prod-eu/payments: kubectl apply -f 'my file.yaml'. Continue? [y/N] ⚠ prod-eu/web: kubectl -n web delete pod x. Continue? [y/N] kdir: not running kubectl delete
+⚠ dev/*: kubectl --context dev -A rollout restart deploy/web. Continue? [y/N] kdir: not running kubectl rollout
+kdir: protect: no terminal to confirm 'kubectl cordon node-1'; set KDIR_YES=1 to run it anyway
+kdir: protect: true is set here, but kubectl is an alias, which bypasses kdir's confirmation
+kdir: protect: true is set here, but you already have a kubectl function; kdir won't replace it

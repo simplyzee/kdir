@@ -1,0 +1,44 @@
+# kubectl tab completion keeps working while the protect wrapper is defined:
+# the completion function stays bound to "kubectl", and the completion
+# requests it makes go straight to the real kubectl.
+
+[!exec:kubectl] skip 'needs kubectl'
+exec kdir allow home/prod
+exec $SHELLBIN $SHELLFLAG scenario.sh
+cmp stdout want
+
+-- home/prod/.kubectx --
+context: prod-eu
+protect: true
+-- scenario.sh --
+. "$WORK/lib.sh"
+if [ -n "${ZSH_VERSION:-}" ]; then
+  autoload -Uz compinit && compinit -u -d "$WORK/zcompdump"
+  eval "$(command kubectl completion zsh)"
+  complete_ap() { kubectl __complete ap 2>/dev/null | cut -f1 | grep '^apply$'; }
+  bound() { [ "${_comps[kubectl]}" = _kubectl ] && echo bound; }
+else
+  # kubectl's bash completion needs bash-completion's _get_comp_words_by_ref;
+  # a minimal stand-in keeps this test independent of that package.
+  if ! type _get_comp_words_by_ref >/dev/null 2>&1; then
+    _get_comp_words_by_ref() { cur=${COMP_WORDS[COMP_CWORD]}; prev=${COMP_WORDS[COMP_CWORD-1]}; words=("${COMP_WORDS[@]}"); cword=$COMP_CWORD; }
+  fi
+  eval "$(command kubectl completion bash)"
+  complete_ap() {
+    COMP_WORDS=(kubectl ap); COMP_CWORD=1; COMP_LINE="kubectl ap"; COMP_POINT=${#COMP_LINE}
+    __start_kubectl kubectl ap kubectl 2>/dev/null
+    printf '%s\n' "${COMPREPLY[@]}" | sed 's/ *$//' | grep '^apply$'
+  }
+  bound() { complete -p kubectl | grep -q -- '-F __start_kubectl kubectl$' && echo bound; }
+fi
+echo "before: $(bound) $(complete_ap)"
+to "$HOME/prod"
+[ "$_kdir_wrapped" = 1 ] && echo "wrapped"
+echo "wrapped: $(bound) $(complete_ap)"
+to "$HOME"
+echo "after: $(bound) $(complete_ap)"
+-- want --
+before: bound apply
+wrapped
+wrapped: bound apply
+after: bound apply

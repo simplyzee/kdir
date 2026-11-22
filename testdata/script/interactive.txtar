@@ -1,0 +1,23 @@
+# A real interactive shell with the hook in its rc file switches context on
+# its own, with no manual hook calls.
+
+exec kdir allow home/proj
+stdin input
+exec $SHELLBIN $SHELLIFLAG1 $SHELLIFLAG2
+stdout 'in: staging-eu/payments'
+stdout 'out: prod-eu/payments'
+! stdout 'in: prod-eu'
+
+-- home/proj/.kubectx --
+context: staging-eu
+namespace: payments
+-- home/.zshrc --
+eval "$(kdir hook zsh)"
+-- home/.bashrc --
+eval "$(kdir hook bash)"
+-- input --
+cd "$HOME/proj"
+echo "in: $(kctx)"
+cd "$HOME"
+echo "out: $(kctx)"
+exit

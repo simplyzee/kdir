@@ -1,0 +1,33 @@
+# Moving directly between two governed directories switches context without
+# losing the original KUBECONFIG.
+
+exec $SHELLBIN $SHELLFLAG scenario.sh
+cmp stdout want
+
+-- home/a/.kubectx --
+context: staging-eu
+-- home/b/.kubectx --
+server: https://127.0.0.1:6443
+namespace: tools
+-- scenario.sh --
+. "$WORK/lib.sh"
+kdir allow "$HOME/a" 2>/dev/null
+kdir allow "$HOME/b" 2>/dev/null
+export KUBECONFIG="$HOME/.kube/config"
+to "$HOME/a"
+check a
+to "$HOME/b"
+check b
+echo "orig=${KDIR_ORIG_KUBECONFIG#$HOME} set=$KDIR_ORIG_KUBECONFIG_SET"
+to "$HOME/a"
+check a-again
+to "$HOME"
+check home
+echo "KUBECONFIG=${KUBECONFIG#$HOME}"
+-- want --
+a: staging-eu/default
+b: dev/tools
+orig=/.kube/config set=1
+a-again: staging-eu/default
+home: prod-eu/payments
+KUBECONFIG=/.kube/config

@@ -1,0 +1,41 @@
+# kdir gc removes overlays of exited shells and keeps those holding
+# credentials; export runs the same clean-up on its own once a day.
+
+mkdir run/kdir
+chmod 0700 run/kdir
+cp stale.yaml run/kdir/99999999.yaml
+cp creds.yaml run/kdir/99999998.yaml
+exec kdir gc
+stderr '^kdir: removed 1 stale overlay\(s\) from .*/run/kdir$'
+stderr '^kdir: kept .*/run/kdir/kept-99999998-\d+\.yaml: contains clusters/users'
+! exists run/kdir/99999999.yaml
+! exists run/kdir/99999998.yaml
+
+# Opportunistic: the first switch of the day cleans up, later ones don't.
+rm run/kdir/.gc-stamp
+cp stale.yaml run/kdir/99999997.yaml
+exec kdir allow home/proj
+exec $SHELLBIN $SHELLFLAG scenario.sh
+! exists run/kdir/99999997.yaml
+cp stale.yaml run/kdir/99999996.yaml
+exec $SHELLBIN $SHELLFLAG scenario.sh
+exists run/kdir/99999996.yaml
+
+-- stale.yaml --
+apiVersion: v1
+kind: Config
+current-context: x
+-- creds.yaml --
+apiVersion: v1
+kind: Config
+current-context: x
+users:
+- name: eks
+  user:
+    token: fake
+-- home/proj/.kubectx --
+context: dev
+-- scenario.sh --
+. "$WORK/lib.sh"
+to "$HOME/proj"
+to "$HOME"

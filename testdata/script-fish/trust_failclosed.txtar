@@ -1,0 +1,41 @@
+# fish: unallowed and edited files are ignored with a notice; fail-closed
+# disables kubectl.
+
+exec fish --no-config scenario.fish
+cmp stdout want
+cmp stderr want-stderr
+
+-- home/proj/.kubectx --
+context: staging-eu
+-- home/missing/.kubectx --
+context: staging-us
+-- scenario.fish --
+source $WORK/lib.fish
+to $HOME/proj
+check unallowed
+prompt
+kdir allow 2>/dev/null
+prompt
+check allowed
+echo "namespace: web" >> .kubectx
+prompt
+check edited
+kdir allow 2>/dev/null
+prompt
+check reallowed
+kdir allow $HOME/missing 2>/dev/null
+to $HOME/missing
+check missing
+to $HOME
+check home
+-- want --
+unallowed: prod-eu/payments
+allowed: staging-eu/default
+edited: prod-eu/payments
+reallowed: staging-eu/web
+missing: ERROR
+home: prod-eu/payments
+-- want-stderr --
+kdir: .kubectx in ~/proj is not allowed. Run 'kdir allow' to trust it.
+kdir: .kubectx in ~/proj changed since it was allowed. Run 'kdir allow' to trust it.
+kdir: .kubectx wants context "staging-us" but it isn't in your kubeconfig. kubectl is disabled in this directory until it is.

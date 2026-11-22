@@ -1,0 +1,77 @@
+# kdir init writes and allows a .kubectx; kdir status reports it with the
+# documented exit codes.
+
+exec $SHELLBIN $SHELLFLAG scenario.sh
+cmp stdout want
+cmp stderr want-stderr
+cmp home/new/.kubectx want-kubectx
+
+-- scenario.sh --
+. "$WORK/lib.sh"
+mkdir -p "$HOME/new" && to "$HOME/new"
+kdir status; echo "exit=$?"
+kdir init; echo "exit=$?"
+cat .kubectx
+kdir init; echo "exit=$?"
+prompt
+kdir status | grep -v '^overlay:'; echo "exit=$?"
+kdir status | grep -q "^overlay: *$WORK/run/kdir/" && echo "overlay shown"
+kdir init --force --server; echo "exit=$?"
+cat .kubectx
+prompt
+check server
+kdir init --force --regex '^staging'; echo "exit=$?"
+prompt
+kdir status | grep '^context:'; echo "exit=$(kdir status >/dev/null; echo $?)"
+kdir init --force --context staging-us; echo "exit=$?"
+kdir init --force --context staging-eu --namespace web; echo "exit=$?"
+kdir init --force --context a --regex b; echo "exit=$?"
+kdir deny
+kdir status | grep '^allowed:'; echo "exit=$(kdir status >/dev/null; echo $?)"
+prompt
+-- want --
+No .kubectx governs ~/new; kubectl uses your normal kubeconfig.
+exit=1
+exit=0
+# kdir: Kubernetes context for this directory. Safe to commit; contains no credentials.
+context: prod-eu
+namespace: payments
+exit=1
+file:       ~/new/.kubectx
+allowed:    yes
+matcher:    context "prod-eu"
+context:    prod-eu
+namespace:  payments
+protect:    false
+exit=0
+overlay shown
+exit=0
+# kdir: Kubernetes context for this directory. Safe to commit; contains no credentials.
+server: https://PROD5678.gr7.eu-west-1.eks.amazonaws.com
+namespace: payments
+server: prod-eu/payments
+exit=0
+context:  ambiguous: staging-eu, staging-eu-readonly (kubectl disabled)
+exit=2
+exit=0
+exit=0
+exit=1
+allowed:  no (run 'kdir allow')
+exit=3
+-- want-stderr --
+kdir: wrote and allowed ~/new/.kubectx (context "prod-eu")
+kdir: ~/new/.kubectx already exists; use --force to overwrite it
+kdir: wrote and allowed ~/new/.kubectx (server "https://PROD5678.gr7.eu-west-1.eks.amazonaws.com")
+kdir: warning: .kubectx wants a context matching /^staging/ but 2 contexts match (staging-eu, staging-eu-readonly). kubectl will be disabled in this directory until the match is unique.
+kdir: wrote and allowed ~/new/.kubectx (a context matching /^staging/)
+kdir: .kubectx wants a context matching /^staging/ but 2 contexts match (staging-eu, staging-eu-readonly). kubectl is disabled in this directory until the match is unique.
+kdir: warning: .kubectx wants context "staging-us" but it isn't in your kubeconfig. kubectl will be disabled in this directory until it is.
+kdir: wrote and allowed ~/new/.kubectx (context "staging-us")
+kdir: wrote and allowed ~/new/.kubectx (context "staging-eu")
+kdir: use at most one of --context, --regex and --server
+kdir: denied ~/new/.kubectx
+kdir: .kubectx in ~/new is not allowed. Run 'kdir allow' to trust it.
+-- want-kubectx --
+# kdir: Kubernetes context for this directory. Safe to commit; contains no credentials.
+context: staging-eu
+namespace: web

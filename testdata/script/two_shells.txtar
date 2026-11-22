@@ -1,0 +1,52 @@
+# Two shells in the same directory at the same time stay independent: a
+# context switch in one does not affect the other, and neither touches the
+# real kubeconfig.
+
+exec kdir allow home/proj
+exec kctx stamp $HOME/.kube/config
+cp stdout stamp-before
+exec $SHELLBIN $SHELLFLAG one.sh &
+exec $SHELLBIN $SHELLFLAG two.sh &
+wait
+cmp one.out want-one
+cmp two.out want-two
+exec kctx stamp $HOME/.kube/config
+cmp stdout stamp-before
+
+-- home/proj/.kubectx --
+context: staging-eu
+namespace: payments
+-- waitfor.sh --
+waitfor() { i=0; while [ ! -e "$WORK/$1" ] && [ $i -lt 400 ]; do sleep 0.05; i=$((i+1)); done; }
+-- one.sh --
+. "$WORK/lib.sh"
+. "$WORK/waitfor.sh"
+to "$HOME/proj"
+check one-entered > "$WORK/one.out"
+touch "$WORK/one.entered"
+waitfor two.switched
+check one-after-two-switched >> "$WORK/one.out"
+kdir status --short >> "$WORK/one.out"
+touch "$WORK/one.done"
+-- two.sh --
+. "$WORK/lib.sh"
+. "$WORK/waitfor.sh"
+to "$HOME/proj"
+waitfor one.entered
+kctx use dev
+kctx ns tools
+prompt
+check two-switched > "$WORK/two.out"
+kdir status --short >> "$WORK/two.out"
+touch "$WORK/two.switched"
+waitfor one.done
+to "$HOME"
+check two-left >> "$WORK/two.out"
+-- want-one --
+one-entered: staging-eu/payments
+one-after-two-switched: staging-eu/payments
+staging-eu:payments
+-- want-two --
+two-switched: dev/tools
+dev:tools
+two-left: prod-eu/payments

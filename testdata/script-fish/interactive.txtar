@@ -1,0 +1,44 @@
+# fish: a real interactive shell (on a pty, via script(1)) with the hook in
+# config.fish switches on its own, and fish_prompt still sees the previous
+# command's $status.
+
+[!exec:script] skip 'needs script(1) for a pty'
+exec kdir allow home/proj
+exec sh runpty.sh
+grep '^status=3 kdir=$' prompt-status
+grep '^status=0 kdir=staging-eu$' prompt-status
+grep '^status=5 kdir=staging-eu$' prompt-status
+grep '^status=0 kdir=$' prompt-status
+cmp out want-out
+
+-- home/proj/.kubectx --
+context: staging-eu
+namespace: payments
+-- home/.config/fish/config.fish --
+kdir hook fish | source
+function fish_prompt
+    echo "status=$status kdir=$KDIR_CONTEXT" >> $WORK/prompt-status
+    echo '> '
+end
+-- input --
+sh -c 'exit 3'
+cd $HOME/proj
+sh -c 'exit 5'
+kctx > $WORK/out
+cd $HOME
+kctx >> $WORK/out
+exit 0
+-- runpty.sh --
+# Type one line at a time, like a person: input typed ahead of fish's
+# start-up terminal query would be swallowed by it.
+export TERM=xterm
+feed() { sleep 1; while IFS= read -r line; do printf '%s\n' "$line"; sleep 0.3; done < input; }
+# BSD script (macOS) takes the command as arguments; util-linux needs -c.
+if script -q /dev/null true >/dev/null 2>&1; then
+  feed | script -q /dev/null fish -i > /dev/null 2>&1
+else
+  feed | script -qec 'fish -i' /dev/null > /dev/null 2>&1
+fi
+-- want-out --
+staging-eu/payments
+prod-eu/payments

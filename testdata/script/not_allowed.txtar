@@ -1,0 +1,48 @@
+# An unallowed .kubectx is ignored (with one notice per entry); editing an
+# allowed file revokes it; deny revokes it.
+
+exec $SHELLBIN $SHELLFLAG scenario.sh
+cmp stdout want
+cmp stderr want-stderr
+
+-- home/proj/.kubectx --
+context: staging-eu
+-- scenario.sh --
+. "$WORK/lib.sh"
+to "$HOME/proj"
+check unallowed
+echo "KUBECONFIG=${KUBECONFIG-unset}"
+prompt
+mkdir -p sub && to sub
+to ..
+kdir allow
+prompt
+check allowed
+echo "namespace: web" >> .kubectx
+prompt
+check edited
+echo "KUBECONFIG=${KUBECONFIG-unset}"
+kdir allow
+prompt
+check reallowed
+kdir deny
+prompt
+check denied
+to "$HOME"
+to "$HOME/proj"
+-- want --
+unallowed: prod-eu/payments
+KUBECONFIG=unset
+allowed: staging-eu/default
+edited: prod-eu/payments
+KUBECONFIG=unset
+reallowed: staging-eu/web
+denied: prod-eu/payments
+-- want-stderr --
+kdir: .kubectx in ~/proj is not allowed. Run 'kdir allow' to trust it.
+kdir: allowed ~/proj/.kubectx
+kdir: .kubectx in ~/proj changed since it was allowed. Run 'kdir allow' to trust it.
+kdir: allowed ~/proj/.kubectx
+kdir: denied ~/proj/.kubectx
+kdir: .kubectx in ~/proj is not allowed. Run 'kdir allow' to trust it.
+kdir: .kubectx in ~/proj is not allowed. Run 'kdir allow' to trust it.
