@@ -48,6 +48,67 @@ check() {
 kdirvars() { env | grep '^KDIR_' | sed 's/=.*//' | sort | paste -sd ' ' -; }
 `
 
+// lib.fish is the fish equivalent of lib.sh.
+const libFish = `
+kdir hook fish | source
+function prompt; __kdir_hook; end
+function to; cd $argv[1]; and prompt; end
+function check
+    set -l k (kctx)
+    if command -q kubectl
+        set -l kc (kubectl config view --minify -o 'jsonpath={.current-context}/{..namespace}' 2>/dev/null); or set kc ERROR
+        test "$kc" = "$k"; or echo "kubectl disagrees: $kc (kctx: $k)"
+    end
+    echo "$argv[1]: $k"
+end
+function kdirvars; env | grep '^KDIR_' | sed 's/=.*//' | sort | paste -sd ' ' -; end
+`
+
+// setupHome creates $WORK/home with the fixture kubeconfig and the shared
+// fixture files every scenario can use.
+func setupHome(env *testscript.Env) error {
+	home := filepath.Join(env.WorkDir, "home")
+	kube := filepath.Join(home, ".kube")
+	if err := os.MkdirAll(kube, 0o755); err != nil {
+		return err
+	}
+	basic, err := os.ReadFile(testutil.Fixture("kubeconfig/basic.yaml"))
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(kube, "config"), basic, 0o600); err != nil {
+		return err
+	}
+	for _, f := range []string{"multi-a.yaml", "multi-b.yaml"} {
+		data, err := os.ReadFile(testutil.Fixture("kubeconfig/" + f))
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(env.WorkDir, f), data, 0o600); err != nil {
+			return err
+		}
+	}
+	for name, content := range map[string]string{"lib.sh": lib, "lib.fish": libFish} {
+		if err := os.WriteFile(filepath.Join(env.WorkDir, name), []byte(content), 0o644); err != nil {
+			return err
+		}
+	}
+	env.Setenv("HOME", home)
+	env.Setenv("XDG_RUNTIME_DIR", filepath.Join(env.WorkDir, "run"))
+	return nil
+}
+
+func TestFishScripts(t *testing.T) {
+	if _, err := exec.LookPath("fish"); err != nil {
+		t.Skip("fish not installed")
+	}
+	testscript.Run(t, testscript.Params{
+		Dir:                 filepath.Join(testutil.Root(), "testdata", "script-fish"),
+		RequireExplicitExec: true,
+		Setup:               setupHome,
+	})
+}
+
 func TestScripts(t *testing.T) {
 	for _, sh := range []struct{ name, flag, iflag1, iflag2 string }{
 		{"zsh", "-f", "--no-globalrcs", "-i"},
@@ -62,32 +123,9 @@ func TestScripts(t *testing.T) {
 				Dir:                 filepath.Join(testutil.Root(), "testdata", "script"),
 				RequireExplicitExec: true,
 				Setup: func(env *testscript.Env) error {
-					home := filepath.Join(env.WorkDir, "home")
-					kube := filepath.Join(home, ".kube")
-					if err := os.MkdirAll(kube, 0o755); err != nil {
+					if err := setupHome(env); err != nil {
 						return err
 					}
-					basic, err := os.ReadFile(testutil.Fixture("kubeconfig/basic.yaml"))
-					if err != nil {
-						return err
-					}
-					if err := os.WriteFile(filepath.Join(kube, "config"), basic, 0o600); err != nil {
-						return err
-					}
-					for _, f := range []string{"multi-a.yaml", "multi-b.yaml"} {
-						data, err := os.ReadFile(testutil.Fixture("kubeconfig/" + f))
-						if err != nil {
-							return err
-						}
-						if err := os.WriteFile(filepath.Join(env.WorkDir, f), data, 0o600); err != nil {
-							return err
-						}
-					}
-					if err := os.WriteFile(filepath.Join(env.WorkDir, "lib.sh"), []byte(lib), 0o644); err != nil {
-						return err
-					}
-					env.Setenv("HOME", home)
-					env.Setenv("XDG_RUNTIME_DIR", filepath.Join(env.WorkDir, "run"))
 					env.Setenv("SHELLBIN", bin)
 					env.Setenv("SHELLFLAG", sh.flag)
 					env.Setenv("SHELLNAME", sh.name)

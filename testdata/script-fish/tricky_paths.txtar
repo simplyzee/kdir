@@ -1,0 +1,23 @@
+# fish: paths with spaces, quotes, backslashes and dollar signs.
+
+exec fish --no-config scenario.fish
+cmp stdout want
+
+-- scenario.fish --
+source $WORK/lib.fish
+set -gx XDG_RUNTIME_DIR "$WORK/run dir with 'quotes' \\back and \$dollar"
+set d "$HOME/it's a \"pro\$ject\" dir; with `ticks` and \\slash"
+mkdir -p $d
+printf 'context: dev\nnamespace: tools\n' > $d/.kubectx
+kdir allow $d 2>/dev/null
+to $d
+check in
+test "$KDIR_ROOT" = "$d"; and echo "KDIR_ROOT exact"
+string match -q -- "$XDG_RUNTIME_DIR/kdir/*" $KDIR_OVERLAY; and echo "overlay under tricky runtime dir"
+to $HOME
+check out
+-- want --
+in: dev/tools
+KDIR_ROOT exact
+overlay under tricky runtime dir
+out: prod-eu/payments

@@ -62,6 +62,8 @@ Add the hook to your shell's rc file:
 		newAllow(),
 		newDeny(),
 		newInit(),
+		newExec(),
+		newGC(),
 		newVersion(),
 	)
 	return root

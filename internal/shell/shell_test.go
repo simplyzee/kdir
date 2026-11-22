@@ -26,7 +26,7 @@ var tricky = []string{
 }
 
 func TestExportRoundTripsInRealShells(t *testing.T) {
-	for _, name := range []string{"bash", "zsh"} {
+	for _, name := range []string{"bash", "zsh", "fish"} {
 		t.Run(name, func(t *testing.T) {
 			bin, err := exec.LookPath(name)
 			if err != nil {
@@ -37,10 +37,14 @@ func TestExportRoundTripsInRealShells(t *testing.T) {
 				code := sh.Export([]engine.Change{{Name: "KDIR_TEST", Value: v}, {Name: "KDIR_GONE", Unset: true}})
 				script := "KDIR_GONE=x; eval \"$1\"; printf '%s|%s' \"$KDIR_TEST\" \"${KDIR_GONE-unset}\"; env | grep -q '^KDIR_TEST=' && printf '|exported'"
 				args := []string{"-c", script, "kdir-test", code}
-				if name == "zsh" {
+				switch name {
+				case "zsh":
 					args = append([]string{"-f"}, args...)
-				} else {
+				case "bash":
 					args = append([]string{"--norc", "--noprofile"}, args...)
+				case "fish":
+					script = `set -gx KDIR_GONE x; echo $argv[1] | source; set -q KDIR_GONE; and set gone set; or set gone unset; printf '%s|%s' "$KDIR_TEST" $gone; env | grep -q '^KDIR_TEST=' && printf '|exported'`
+					args = []string{"--no-config", "-c", script, code}
 				}
 				out, err := exec.Command(bin, args...).CombinedOutput()
 				if err != nil {
@@ -75,7 +79,7 @@ func TestInvalidNamePanics(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	if _, err := Get("tcsh"); err == nil || !strings.Contains(err.Error(), "bash, zsh") {
+	if _, err := Get("tcsh"); err == nil || !strings.Contains(err.Error(), "bash, fish, zsh") {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -157,5 +161,22 @@ func TestHooksPreserveExitStatus(t *testing.T) {
 		if strings.TrimSpace(string(out)) != "42" {
 			t.Errorf("%s: $? after hook = %q, want 42", name, out)
 		}
+	}
+}
+
+func TestFishHook(t *testing.T) {
+	fishBin, err := exec.LookPath("fish")
+	if err != nil {
+		t.Skip("fish not installed")
+	}
+	sh, _ := Get("fish")
+	// Evaluating the hook twice defines one handler; $status survives it.
+	script := `echo $argv[1] | source; echo $argv[1] | source; functions --handlers-type variable | string match -q '*__kdir_hook*'; and echo handler; false; __kdir_hook 2>/dev/null; echo status=$status`
+	out, err := exec.Command(fishBin, "--no-config", "-c", script, sh.Hook()).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if got := strings.TrimSpace(string(out)); !strings.Contains(got, "handler") {
+		t.Errorf("hook not registered as PWD handler: %q", got)
 	}
 }

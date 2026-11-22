@@ -318,6 +318,13 @@ func enter(e Env, s shellState, found *discover.Found, fp string, store trust.St
 		return Result{}, fmt.Errorf("overlay directory: %w", err)
 	}
 	path := overlay.Path(dir, e.PID)
+	if overlay.GCDue(dir, time.Now()) {
+		// Opportunistic, at most once a day: clean up after shells that
+		// exited without leaving their directory (closed terminals).
+		if res, err := overlay.GC(dir); err == nil && len(res.Saved) > 0 {
+			r.msg("saved %d overlay(s) from exited shells that contain credentials written by other tools; see 'kdir gc'", len(res.Saved))
+		}
+	}
 	if s.own && s.overlay != "" && s.overlay != path {
 		discard(&r, s.overlay, e)
 	}
@@ -395,7 +402,7 @@ func keepCredentials(r *Result, path string, e Env) {
 	if _, statErr := os.Stat(path); statErr != nil {
 		return
 	}
-	kept := filepath.Join(filepath.Dir(path), fmt.Sprintf("kept-%d-%d.yaml", e.PID, time.Now().UnixNano()))
+	kept := filepath.Join(filepath.Dir(path), overlay.KeptName(e.PID))
 	if renameErr := os.Rename(path, kept); renameErr != nil {
 		r.msg("can't save overlay %s: %v", path, renameErr)
 		return

@@ -1,0 +1,51 @@
+# kdir exec runs one command with the directory's context and no shell hook.
+# It refuses an unallowed .kubectx, fails closed, propagates exit codes and
+# leaves no overlay behind.
+
+exec kctx stamp $HOME/.kube/config
+cp stdout stamp-before
+exec $SHELLBIN $SHELLFLAG scenario.sh
+cmp stdout want
+cmp stderr want-stderr
+exec kctx stamp $HOME/.kube/config
+cmp stdout stamp-before
+
+-- home/proj/.kubectx --
+context: staging-eu
+namespace: payments
+-- home/missing/.kubectx --
+context: staging-us
+-- scenario.sh --
+cd "$HOME/proj"
+kdir exec -- kctx; echo "unallowed exit=$?"
+kdir allow 2>/dev/null
+kdir exec -- kctx; echo "exit=$?"
+kdir exec kctx use dev
+kdir exec kctx
+kctx
+kdir exec -- sh -c 'exit 7'; echo "exit=$?"
+kdir exec -- sh -c 'kill -TERM $$'; echo "signal exit=$?"
+kdir exec -- sh -c 'echo "context=$KDIR_CONTEXT"; case "$KUBECONFIG" in "$XDG_RUNTIME_DIR"/kdir/*:"$HOME"/.kube/config) echo overlay-first;; esac'
+kdir exec -- no-such-command-kdir; echo "missing command exit=$?"
+echo "overlays left: $(ls "$WORK/run/kdir" | grep -c .)"
+kdir allow "$HOME/missing" 2>/dev/null
+cd "$HOME/missing"
+kdir exec -- kctx; echo "exit=$?"
+-- want --
+unallowed exit=1
+staging-eu/payments
+exit=0
+staging-eu/payments
+prod-eu/payments
+exit=7
+signal exit=143
+context=staging-eu
+overlay-first
+missing command exit=1
+overlays left: 0
+ERROR
+exit=0
+-- want-stderr --
+kdir: .kubectx in ~/proj is not allowed; run 'kdir allow' first
+kdir: exec: "no-such-command-kdir": executable file not found in $PATH
+kdir: .kubectx wants context "staging-us" but it isn't in your kubeconfig. kubectl is disabled in this directory until it is.

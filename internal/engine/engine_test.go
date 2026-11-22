@@ -193,6 +193,9 @@ func overlayFiles(t *testing.T, w *world) []string {
 	entries, _ := os.ReadDir(filepath.Join(w.root, "run", "kdir"))
 	var out []string
 	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue // .gc-stamp
+		}
 		out = append(out, e.Name())
 	}
 	return out
