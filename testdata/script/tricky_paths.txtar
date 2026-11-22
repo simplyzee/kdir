@@ -1,0 +1,28 @@
+# Paths with spaces, quotes and dollar signs survive the round trip through
+# the shell, both in the project path and in the overlay path.
+
+exec $SHELLBIN $SHELLFLAG scenario.sh
+cmp stdout want
+
+-- scenario.sh --
+. "$WORK/lib.sh"
+export XDG_RUNTIME_DIR="$WORK/run dir with 'quotes' and \$dollar"
+d="$HOME/it's a \"pro\$ject\" dir; with \`ticks\`"
+mkdir -p "$d"
+printf 'context: dev\nnamespace: tools\n' > "$d/.kubectx"
+kdir allow "$d" 2>/dev/null
+to "$d"
+check in
+[ "$KDIR_ROOT" = "$d" ] && echo "KDIR_ROOT exact"
+case "$KDIR_OVERLAY" in "$XDG_RUNTIME_DIR/kdir/"*) echo "overlay under tricky runtime dir";; esac
+[ -f "$KDIR_OVERLAY" ] && echo "overlay exists"
+to "$HOME"
+check out
+echo "KUBECONFIG=${KUBECONFIG-unset}"
+-- want --
+in: dev/tools
+KDIR_ROOT exact
+overlay under tricky runtime dir
+overlay exists
+out: prod-eu/payments
+KUBECONFIG=unset

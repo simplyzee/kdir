@@ -1,0 +1,48 @@
+# When the .kubectx can't be satisfied, kubectl fails instead of using the
+# previously active context (prod-eu here).
+
+exec $SHELLBIN $SHELLFLAG scenario.sh
+cmp stdout want
+cmp stderr want-stderr
+
+-- home/missing/.kubectx --
+context: staging-us
+-- home/ambiguous/.kubectx --
+contextRegex: staging
+-- home/invalid/.kubectx --
+context: [staging
+-- home/ok/.kubectx --
+context: dev
+-- scenario.sh --
+. "$WORK/lib.sh"
+for d in missing ambiguous invalid ok; do kdir allow "$HOME/$d" 2>/dev/null; done
+check start
+to "$HOME/missing"
+check missing
+echo "status exit: $(kdir status >/dev/null; echo $?)"
+echo "short=[$(kdir status --short)] context=[${KDIR_CONTEXT-unset}]"
+to "$HOME/ambiguous"
+check ambiguous
+to "$HOME/invalid"
+check invalid
+to "$HOME/ok"
+check ok
+to "$HOME/missing"
+check missing-again
+to "$HOME"
+check home
+-- want --
+start: prod-eu/payments
+missing: ERROR
+status exit: 2
+short=[] context=[unset]
+ambiguous: ERROR
+invalid: ERROR
+ok: dev/
+missing-again: ERROR
+home: prod-eu/payments
+-- want-stderr --
+kdir: .kubectx wants context "staging-us" but it isn't in your kubeconfig. kubectl is disabled in this directory until it is.
+kdir: .kubectx wants a context matching /staging/ but 3 contexts match (arn:aws:eks:eu-west-1:123456789012:cluster/staging, staging-eu, staging-eu-readonly). kubectl is disabled in this directory until the match is unique.
+kdir: ~/invalid/.kubectx: invalid YAML: yaml: line 1: did not find expected ',' or ']'. kubectl is disabled in this directory until it is fixed.
+kdir: .kubectx wants context "staging-us" but it isn't in your kubeconfig. kubectl is disabled in this directory until it is.

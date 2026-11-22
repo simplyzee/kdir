@@ -1,0 +1,57 @@
+# Enter a governed directory, move around inside it and leave it again.
+# KUBECONFIG starts unset and must end unset; the real kubeconfig is never
+# written; no KDIR_* variables or overlay files are left behind.
+
+# When kubectl is installed, check() cross-checks every result against it.
+[exec:kubectl] exec $SHELLBIN $SHELLFLAG -c 'command -v kubectl >/dev/null && echo kubectl-cross-check-active'
+[exec:kubectl] stdout kubectl-cross-check-active
+
+exec kctx stamp $HOME/.kube/config
+cp stdout stamp-before
+exec $SHELLBIN $SHELLFLAG scenario.sh
+cmp stdout want
+cmp stderr want-stderr
+exec kctx stamp $HOME/.kube/config
+cmp stdout stamp-before
+
+-- home/src/payments/.kubectx --
+context: staging-eu
+namespace: payments
+-- scenario.sh --
+. "$WORK/lib.sh"
+mkdir -p "$HOME/src/payments/svc/api"
+kdir allow "$HOME/src/payments"
+prompt
+check start
+echo "KUBECONFIG=${KUBECONFIG-unset}"
+to "$HOME/src"
+check src
+to "$HOME/src/payments"
+check payments
+echo "vars:[$(kdirvars)]"
+echo "KDIR_CONTEXT=$KDIR_CONTEXT KDIR_NAMESPACE=$KDIR_NAMESPACE root=${KDIR_ROOT#$HOME}"
+[ "$KUBECONFIG" = "$KDIR_OVERLAY:$HOME/.kube/config" ] && echo "overlay in front of ~/.kube/config"
+echo "short=$(kdir status --short)"
+to "$HOME/src/payments/svc/api"
+check nested
+to "$HOME"
+check home
+echo "KUBECONFIG=${KUBECONFIG-unset}"
+echo "vars:[$(kdirvars)]"
+echo "overlays: $(ls "$WORK/run/kdir" | grep -c .)"
+-- want --
+start: prod-eu/payments
+KUBECONFIG=unset
+src: prod-eu/payments
+payments: staging-eu/payments
+vars:[KDIR_CONTEXT KDIR_NAMESPACE KDIR_ORIG_KUBECONFIG KDIR_ORIG_KUBECONFIG_SET KDIR_OVERLAY KDIR_ROOT KDIR_STATE]
+KDIR_CONTEXT=staging-eu KDIR_NAMESPACE=payments root=/src/payments
+overlay in front of ~/.kube/config
+short=staging-eu:payments
+nested: staging-eu/payments
+home: prod-eu/payments
+KUBECONFIG=unset
+vars:[]
+overlays: 0
+-- want-stderr --
+kdir: allowed ~/src/payments/.kubectx
