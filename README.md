@@ -31,6 +31,7 @@ direnv is, but built for Kubernetes and with no credentials in the repo.
 - [Performance](#performance)
 - [Limitations](#limitations)
 - [Development](#development)
+- [License](#license)
 
 ## Why
 
@@ -401,3 +402,7 @@ The Homebrew cask is generated on every release but only published when the
 
 The binaries aren't notarised, so the cask clears macOS's quarantine flag
 after install.
+
+## License
+
+[MIT](LICENSE)

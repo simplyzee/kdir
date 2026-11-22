@@ -52,6 +52,7 @@ homebrew_casks:
   - name: kdir
     homepage: https://github.com/thomaschaplin/kdir
     description: Per-directory Kubernetes context and namespace, from a committable .kubectx file
+    license: MIT
     binaries: [kdir]
     repository:
       owner: thomaschaplin
