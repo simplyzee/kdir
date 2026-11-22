@@ -1,0 +1,56 @@
+# Fixture kubeconfig. All credentials are fake.
+apiVersion: v1
+kind: Config
+current-context: prod-eu
+clusters:
+- name: staging-eu
+  cluster:
+    server: https://ABCD1234.gr7.eu-west-1.eks.amazonaws.com
+    certificate-authority-data: ZmFrZS1jYQ==
+- name: prod-eu
+  cluster:
+    server: https://PROD5678.gr7.eu-west-1.eks.amazonaws.com
+    certificate-authority-data: ZmFrZS1jYQ==
+- name: dev
+  cluster:
+    server: https://127.0.0.1:6443
+    insecure-skip-tls-verify: true
+users:
+- name: staging-admin
+  user:
+    token: fake-token-staging-admin
+- name: staging-readonly
+  user:
+    token: fake-token-staging-readonly
+- name: prod-admin
+  user:
+    client-certificate-data: ZmFrZS1jZXJ0
+    client-key-data: ZmFrZS1rZXk=
+- name: dev-user
+  user:
+    username: dev
+    password: fake-password
+contexts:
+- name: staging-eu
+  context:
+    cluster: staging-eu
+    user: staging-admin
+    namespace: default
+- name: staging-eu-readonly
+  context:
+    cluster: staging-eu
+    user: staging-readonly
+- name: arn:aws:eks:eu-west-1:123456789012:cluster/staging
+  context:
+    cluster: staging-eu
+    user: staging-admin
+    namespace: kube-system
+- name: prod-eu
+  context:
+    cluster: prod-eu
+    user: prod-admin
+    namespace: payments
+- name: dev
+  context:
+    cluster: dev
+    user: dev-user

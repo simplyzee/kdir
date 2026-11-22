@@ -1,0 +1,23 @@
+# Second file of a multi-file KUBECONFIG. Fake credentials.
+apiVersion: v1
+kind: Config
+current-context: beta
+clusters:
+- name: beta
+  cluster:
+    server: https://beta.example.com:6443
+users:
+- name: beta-user
+  user:
+    token: fake-token-beta
+contexts:
+- name: beta
+  context:
+    cluster: beta
+    user: beta-user
+# Same name as in multi-a.yaml: multi-a.yaml must win because it comes first.
+- name: alpha
+  context:
+    cluster: beta
+    user: beta-user
+    namespace: shadowed

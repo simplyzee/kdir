@@ -1,0 +1,4 @@
+/dist/
+/kdir
+*.test
+*.out
