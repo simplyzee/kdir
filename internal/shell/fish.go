@@ -17,6 +17,28 @@ func (fish) Name() string { return "fish" }
 func (fish) Hook() string {
 	return `function __kdir_hook --on-variable PWD --on-event fish_prompt --description 'kdir: Kubernetes context for this directory'
     command kdir export fish --pid $fish_pid | source
+    __kdir_protect_sync
+end
+function __kdir_protect_sync --description 'kdir: add or remove the protect: true kubectl wrapper'
+    if set -q KDIR_PROTECT
+        set -q __kdir_wrapped; and return 0
+        if functions -q kubectl
+            echo "kdir: protect: true is set here, but you already have a kubectl function or alias; kdir won't replace it" >&2
+            set -g __kdir_wrapped foreign
+        else
+            function kubectl --description 'kdir protect: true wrapper'
+                if string match -q -- '__complete*' "$argv[1]"
+                    command kubectl $argv
+                    return
+                end
+                command kdir guard -- $argv; and command kubectl $argv
+            end
+            set -g __kdir_wrapped 1
+        end
+    else if set -q __kdir_wrapped
+        test "$__kdir_wrapped" = 1; and functions -e kubectl
+        set -e __kdir_wrapped
+    end
 end
 `
 }

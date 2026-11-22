@@ -541,3 +541,29 @@ func TestTilde(t *testing.T) {
 		}
 	}
 }
+
+func TestProtectFlag(t *testing.T) {
+	w := newWorld(t)
+	w.project("prod", "context: prod-eu\nprotect: true\n", true)
+	w.project("dev", "context: dev\n", true)
+	w.project("broken", "context: nope\nprotect: true\n", true)
+	s := w.shell(100, nil)
+	s.cd("prod")
+	if s.env[EnvProtect] != "1" {
+		t.Fatal("KDIR_PROTECT not set for protect: true")
+	}
+	s.cd("dev")
+	if _, ok := s.env[EnvProtect]; ok {
+		t.Fatal("KDIR_PROTECT left set in an unprotected dir")
+	}
+	s.cd("prod")
+	s.cd("broken") // fail-closed: kubectl can't run anyway
+	if _, ok := s.env[EnvProtect]; ok {
+		t.Fatal("KDIR_PROTECT set while fail-closed")
+	}
+	s.cd("prod")
+	s.cd("")
+	if _, ok := s.env[EnvProtect]; ok {
+		t.Fatal("KDIR_PROTECT left set after leaving")
+	}
+}

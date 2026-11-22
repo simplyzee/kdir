@@ -88,13 +88,50 @@ func init() {
 // The hooks call `command kdir` so a user function or alias named kdir is
 // bypassed, and pass the shell's own PID so each shell gets its own overlay.
 // They preserve $? so prompts that show the last exit status keep working.
+//
+// After applying the environment, _kdir_protect_sync defines a kubectl
+// function while KDIR_PROTECT is set (protect: true) and removes it when it
+// is not, without starting a process. The function asks `kdir guard` before
+// mutating commands. Completion requests (kubectl __complete ...) go straight
+// to kubectl, and the completion functions stay bound to the name "kubectl",
+// so tab completion keeps working. kdir never replaces a kubectl alias or
+// function the user defined; it says once that protect can't apply.
 
-const zshHook = `_kdir_hook() {
+// protectPOSIX is shared by bash and zsh; hasFunc is the shell's test for an
+// existing kubectl function.
+func protectPOSIX(hasFunc string) string {
+	return `_kdir_protect_sync() {
+  if [ -n "${KDIR_PROTECT:-}" ]; then
+    [ -n "${_kdir_wrapped:-}" ] && return 0
+    if alias kubectl >/dev/null 2>&1; then
+      echo "kdir: protect: true is set here, but kubectl is an alias, which bypasses kdir's confirmation" >&2
+      _kdir_wrapped=foreign
+    elif ` + hasFunc + `; then
+      echo "kdir: protect: true is set here, but you already have a kubectl function; kdir won't replace it" >&2
+      _kdir_wrapped=foreign
+    else
+      # "function name" form: a kubectl alias defined later can't rename it.
+      function kubectl {
+        case "${1:-}" in __complete*) command kubectl "$@"; return ;; esac
+        command kdir guard -- "$@" && command kubectl "$@"
+      }
+      _kdir_wrapped=1
+    fi
+  elif [ -n "${_kdir_wrapped:-}" ]; then
+    [ "$_kdir_wrapped" = 1 ] && unset -f kubectl
+    unset _kdir_wrapped
+  fi
+}
+`
+}
+
+var zshHook = `_kdir_hook() {
   local _kdir_status=$?
   eval "$(command kdir export zsh --pid $$)"
+  _kdir_protect_sync
   return $_kdir_status
 }
-typeset -ag precmd_functions chpwd_functions
+` + protectPOSIX("(( ${+functions[kubectl]} ))") + `typeset -ag precmd_functions chpwd_functions
 if (( ! ${precmd_functions[(I)_kdir_hook]} )); then
   precmd_functions=(_kdir_hook $precmd_functions)
 fi
@@ -103,12 +140,13 @@ if (( ! ${chpwd_functions[(I)_kdir_hook]} )); then
 fi
 `
 
-const bashHook = `_kdir_hook() {
+var bashHook = `_kdir_hook() {
   local _kdir_status=$?
   eval "$(command kdir export bash --pid $$)"
+  _kdir_protect_sync
   return $_kdir_status
 }
-_kdir_installed=
+` + protectPOSIX("declare -F kubectl >/dev/null") + `_kdir_installed=
 for _kdir_pc in "${PROMPT_COMMAND[@]:-}"; do
   case ";$_kdir_pc;" in *";_kdir_hook;"*) _kdir_installed=1 ;; esac
 done

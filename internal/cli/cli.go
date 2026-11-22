@@ -64,6 +64,7 @@ Add the hook to your shell's rc file:
 		newInit(),
 		newExec(),
 		newGC(),
+		newGuard(),
 		newVersion(),
 	)
 	return root
