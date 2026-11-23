@@ -1,6 +1,10 @@
-# kdir
+<p align="center">
+  <img alt="kdir logo: a folder with a ship's wheel" src="docs/assets/logo.png" width="200">
+</p>
 
-**Per-directory Kubernetes context and namespace, from a small file your team commits.**
+<h1 align="center">kdir</h1>
+
+<p align="center"><strong>Per-directory Kubernetes context and namespace, from a small file your team commits.</strong></p>
 
 `cd` into a project and kubectl points at the cluster and namespace the project
 declares in `.kubectx`. Only the current shell changes; other terminals don't.
