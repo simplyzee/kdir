@@ -47,7 +47,7 @@ release:
 # Homebrew: `brew install thomaschaplin/tap/kdir`.
 # Publishing stays off until the tap repository exists and the
 # HOMEBREW_TAP_GITHUB_TOKEN secret (a token that can push to it) is set;
-# see "Releasing" in the README.
+# see "Releasing" in docs/development.md.
 homebrew_casks:
   - name: kdir
     homepage: https://github.com/thomaschaplin/kdir
