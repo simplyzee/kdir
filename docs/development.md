@@ -12,6 +12,20 @@ They drive real shells, including interactive ones, and cross-check every
 result against the real `kubectl` when it's installed. Missing shells are
 skipped.
 
+## The README demo
+
+`docs/assets/demo.gif` is a recording of a real bash session running a real
+kdir binary against a throwaway HOME and a fake kubeconfig. To re-record it
+after changing the output:
+
+```bash
+go build -o /tmp/kdir ./cmd/kdir
+pip install pyte pillow   # also needs ffmpeg and JetBrains Mono (set FONT_DIR if not in /usr/share/fonts)
+python3 scripts/demo/record.py /tmp/kdir docs/assets/demo.gif
+```
+
+The commands typed and the pauses between them are in `SCRIPT` in that file.
+
 ## Releasing
 
 Push a tag such as `v0.1.0`. The release workflow runs the tests, then
