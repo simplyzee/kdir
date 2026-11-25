@@ -18,6 +18,10 @@ namespace: payments
 
 Think `.nvmrc` for clusters, hooked into the shell like direnv.
 
+<p align="center">
+  <img alt="Terminal demo: cd into a project, kdir allow switches the prompt from prod-eu to staging-eu:payments, cd out switches it back, and a project whose context is missing disables kubectl" src="docs/assets/demo.gif" width="800">
+</p>
+
 ## Why use it
 
 - **Committable.** The file has no credentials, so the whole team can share it.
