@@ -36,7 +36,8 @@ Think `.nvmrc` for clusters, hooked into the shell like direnv.
 1. **Install**
 
    ```bash
-   go install github.com/thomaschaplin/kdir/cmd/kdir@latest
+   brew install thomaschaplin/tap/kdir                         # macOS and Linux
+   go install github.com/thomaschaplin/kdir/cmd/kdir@latest    # or with Go
    ```
 
    Or grab a binary from the [releases page](https://github.com/thomaschaplin/kdir/releases).
