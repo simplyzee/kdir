@@ -57,7 +57,9 @@ homebrew_casks:
     repository:
       owner: thomaschaplin
       name: homebrew-tap
-      token: '{{ envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "" }}'
+      # Only {{ .Env.NAME }} is accepted here: GoReleaser applies this field
+      # with its env-only templater, which has no helper functions.
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Casks
     commit_author:
       name: goreleaserbot
