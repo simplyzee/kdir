@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 
 	"github.com/spf13/cobra"
 )
@@ -76,7 +77,8 @@ func newVersion() *cobra.Command {
 		Short: "Print version information",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "kdir %s (commit %s, built %s)\n", Version, Commit, Date)
+			version, commit, date := buildInfo(debug.ReadBuildInfo)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "kdir %s (commit %s, built %s)\n", version, commit, date)
 			return err
 		},
 	}
