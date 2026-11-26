@@ -1,0 +1,40 @@
+name: Bug report
+description: kdir did something it shouldn't, or didn't do something it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Include the `.kubectx` if relevant. Remove server URLs or names you don't want to share.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: kdir version
+      description: Output of `kdir version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: shell
+    attributes:
+      label: Shell
+      options: [zsh, bash, fish]
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: macOS 15.2, Ubuntu 24.04, ...
+    validations:
+      required: true
