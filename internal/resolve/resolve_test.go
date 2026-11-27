@@ -33,6 +33,8 @@ func TestResolve(t *testing.T) {
 		{"regex missing", "contextRegex: ^gke_", Result{Status: Missing}},
 		{"server unique", "server: https://PROD5678.gr7.eu-west-1.eks.amazonaws.com", Result{Status: Found, Context: "prod-eu", Namespace: "payments"}},
 		{"server case and slash insensitive", "server: https://prod5678.gr7.eu-west-1.eks.amazonaws.com/", Result{Status: Found, Context: "prod-eu", Namespace: "payments"}},
+		{"server explicit default port", "server: https://prod5678.gr7.eu-west-1.eks.amazonaws.com:443", Result{Status: Found, Context: "prod-eu", Namespace: "payments"}},
+		{"server non-default port is distinct", "server: https://prod5678.gr7.eu-west-1.eks.amazonaws.com:6443", Result{Status: Missing}},
 		{"server ambiguous", "server: " + stagingServer, Result{Status: Ambiguous, Candidates: []string{
 			"arn:aws:eks:eu-west-1:123456789012:cluster/staging", "staging-eu", "staging-eu-readonly"}}},
 		{"server narrowed by user", "server: " + stagingServer + "\nuser: staging-readonly", Result{Status: Found, Context: "staging-eu-readonly"}},

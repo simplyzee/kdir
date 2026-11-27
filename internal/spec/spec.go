@@ -160,7 +160,7 @@ var dns1123Label = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 func isDNS1123Label(s string) bool { return len(s) <= 63 && dns1123Label.MatchString(s) }
 
 // NormalizeServer makes server URLs comparable: lower-case scheme and host,
-// no trailing slash.
+// no default port (443 for https, 80 for http), no trailing slash.
 func NormalizeServer(s string) string {
 	s = strings.TrimSpace(s)
 	u, err := url.Parse(s)
@@ -169,6 +169,13 @@ func NormalizeServer(s string) string {
 	}
 	u.Scheme = strings.ToLower(u.Scheme)
 	u.Host = strings.ToLower(u.Host)
+	// Tools disagree on whether to spell out the default port, so
+	// https://host and https://host:443 must match. Trimming the suffix
+	// rather than rebuilding from Hostname() keeps IPv6 brackets intact.
+	if port := u.Port(); (u.Scheme == "https" && port == "443") || (u.Scheme == "http" && port == "80") {
+		u.Host = strings.TrimSuffix(u.Host, ":"+port)
+	}
+	u.Host = strings.TrimSuffix(u.Host, ":") // empty port, e.g. "https://host:"
 	u.Path = strings.TrimRight(u.Path, "/")
 	u.RawPath = ""
 	return u.String()
