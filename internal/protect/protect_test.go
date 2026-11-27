@@ -46,6 +46,13 @@ func TestParse(t *testing.T) {
 		{"auth can-i get pods", false, "auth", "", ""},
 		{"auth whoami", false, "auth", "", ""},
 		{"auth", false, "auth", "", ""},
+		{"run web --image=nginx", true, "run", "", ""},
+		{"-n payments expose deploy/web --port=80", true, "expose", "", "payments"},
+		{"autoscale deploy/web --max=5", true, "autoscale", "", ""},
+		{"certificate approve csr-1", true, "certificate", "", ""},
+		{"certificate deny csr-1", true, "certificate", "", ""},
+		{"run web --image=nginx --dry-run=client -o yaml", false, "run", "", ""},
+		{"expose deploy/web --port=80 --dry-run=server", false, "expose", "", ""},
 	}
 	for _, tt := range tests {
 		inv := Parse(strings.Fields(tt.cmd))

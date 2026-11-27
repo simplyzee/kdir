@@ -15,6 +15,9 @@ var MutatingVerbs = map[string]bool{
 	"uncordon": true, "taint": true, "label": true, "annotate": true, "set": true,
 	// auth reconcile creates or updates RBAC roles and bindings.
 	"auth": true,
+	// These create or change objects too: run (a pod), expose (a service),
+	// autoscale (an HPA) and certificate approve/deny (a CSR's status).
+	"run": true, "expose": true, "autoscale": true, "certificate": true,
 }
 
 // readOnlySubcommands are subcommands of mutating verbs that only read.
