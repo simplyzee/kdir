@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -159,6 +160,17 @@ var dns1123Label = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 
 func isDNS1123Label(s string) bool { return len(s) <= 63 && dns1123Label.MatchString(s) }
 
+// isDefaultPort reports whether port is the default for scheme. It compares
+// numerically, so a zero-padded port such as "0443" counts, as it does for
+// kubectl and Go's dialer.
+func isDefaultPort(scheme, port string) bool {
+	n, err := strconv.Atoi(port)
+	if err != nil {
+		return false
+	}
+	return (scheme == "https" && n == 443) || (scheme == "http" && n == 80)
+}
+
 // NormalizeServer makes server URLs comparable: lower-case scheme and host,
 // no default port (443 for https, 80 for http), no trailing slash.
 func NormalizeServer(s string) string {
@@ -170,12 +182,20 @@ func NormalizeServer(s string) string {
 	u.Scheme = strings.ToLower(u.Scheme)
 	u.Host = strings.ToLower(u.Host)
 	// Tools disagree on whether to spell out the default port, so
-	// https://host and https://host:443 must match. Trimming the suffix
-	// rather than rebuilding from Hostname() keeps IPv6 brackets intact.
-	if port := u.Port(); (u.Scheme == "https" && port == "443") || (u.Scheme == "http" && port == "80") {
-		u.Host = strings.TrimSuffix(u.Host, ":"+port)
+	// https://host and https://host:443 must match. Only touch hosts with a
+	// real host:port split: a bracketed IPv6 address, or a host with a
+	// single colon. An unbracketed IPv6 host (which kubectl rejects anyway)
+	// is left alone rather than having part of its address taken as a port.
+	if strings.HasPrefix(u.Host, "[") || strings.Count(u.Host, ":") == 1 {
+		switch port := u.Port(); {
+		case port == "":
+			u.Host = strings.TrimSuffix(u.Host, ":") // e.g. "https://host:"
+		case isDefaultPort(u.Scheme, port):
+			// Trimming the suffix rather than rebuilding from Hostname()
+			// keeps IPv6 brackets intact.
+			u.Host = strings.TrimSuffix(u.Host, ":"+port)
+		}
 	}
-	u.Host = strings.TrimSuffix(u.Host, ":") // empty port, e.g. "https://host:"
 	u.Path = strings.TrimRight(u.Path, "/")
 	u.RawPath = ""
 	return u.String()

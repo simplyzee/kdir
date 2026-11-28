@@ -157,6 +157,15 @@ func TestNormalizeServer(t *testing.T) {
 		// A port is only default for its own scheme.
 		{"http://host:443", "http://host:443"},
 		{"https://host:80", "https://host:80"},
+		// Ports compare numerically, as kubectl and Go's dialer do.
+		{"https://host:0443", "https://host"},
+		{"http://host:080", "http://host"},
+		{"https://[fd00::1]:00443", "https://[fd00::1]"},
+		{"https://host:4430", "https://host:4430"},
+		// An unbracketed IPv6 host has no host:port split, so it is left as is.
+		{"https://fd00::", "https://fd00::"},
+		{"https://fd00::443", "https://fd00::443"},
+		{"https://[fd00::1]:", "https://[fd00::1]"},
 		{"not a url/", "not a url"},
 	}
 	for _, tt := range tests {
